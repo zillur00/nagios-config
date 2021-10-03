@@ -1,0 +1,95 @@
+---
+- name: Install Nagios NRPE 
+  hosts: nagiosclients
+  vars_files: 
+        - vars/secret.yml
+  
+  tasks:
+      - name: Install prerequisite packages on CentOS
+        yum:
+         name:
+           - gcc
+           - glibc 
+           - glibc-common
+           - gd
+           - gd-devel
+           - make
+           - net-snmp
+           - openssl-devel
+         state: present
+        when: ansible_facts['distribution'] == "CentOS"
+ 
+      - name: Create Nagios user
+        user:
+          name: "{{ username }}"
+          password: "{{ pwhash }}"      
+
+      - name: Create a directory for installation and all its future downloads
+        file:
+          path: /root/nagios
+          state: directory
+
+      - name: Download latest Nagios Plugins 2.1.2 package
+        get_url:
+             url: https://www.nagios-plugins.org/download/nagios-plugins-2.1.2.tar.gz
+             dest: /root/nagios/nagios-plugins-2.1.2.tar.gz
+      - name: Extract Nagios Plugins
+        unarchive:
+               src: /root/nagios/nagios-plugins-2.1.2.tar.gz
+               dest: /root/nagios
+               remote_src: yes                       
+      
+      - name: Compile and Install Nagios Plugins
+        command: "{{ item }}"
+        args: 
+          chdir: /root/nagios/nagios-plugins-2.1.2
+        with_items: 
+                - ./configure 
+                - make
+                - make install
+      - name: Set the permissions on the plugin directory
+        file:
+          path: /usr/local/nagios
+          owner: nagios
+          group: nagios
+                         
+      - name: Set the permissions on the plugin directory recursively
+        file:
+          path: /usr/local/nagios/libexec
+          state: directory
+          recurse: yes      
+          owner: nagios
+          group: nagios
+      - name: Install Xinetd
+        yum:
+         name: xinetd
+         state: present
+      - name: Download latest Nagios Plugins 2.1.2 package
+        get_url:
+             url: https://github.com/NagiosEnterprises/nrpe/releases/download/nrpe-3.2.1/nrpe-3.2.1.tar.gz
+             dest: /root/nagios/nrpe-3.2.1.tar.gz
+      - name: Extract NRPE Plugins
+        unarchive:
+               src: /root/nagios/nrpe-3.2.1.tar.gz
+               dest: /root/nagios
+               remote_src: yes
+
+      - name: Compile and Install Nagios Plugins
+        command: "{{ item }}"
+        args:
+          chdir: /root/nagios/nrpe-3.2.1
+        with_items:
+                - ./configure
+                - make all
+                - make install-plugin
+                - make install-daemon
+                - make install-inetd
+ 
+ #     - name: Install packages on Ubuntu
+  #      apt:
+   #      name:
+    #       - nagios-plugins
+     #      - nagios-nrpe-server
+      #   state: present          
+       # when "ansible_distribution == Ubuntu"   
+...
